@@ -1,0 +1,76 @@
+clc;
+clear all;
+clf;
+addpath('../DeepSDP/');
+%%
+rng('default');
+
+warning off;
+
+%cvx_solver mosek
+%cvx_solver sedumi
+%cvx_solver sdpt3
+
+verbose = true;
+m = 6;
+
+dim_in = 2;
+dim_out = 2;
+num_hidden_units_per_layer = 500;
+num_layers = 1;
+dims = [dim_in num_hidden_units_per_layer*ones(1,num_layers) dim_out];
+
+
+
+options.language = 'cvx';
+options.solver = 'mosek';
+options.verbose = false;
+
+eps_list = [0.1,0.4,0.8];
+
+net = nnsequential(dims,'relu');
+%save(['net-' num2str(num_layers) 'L.mat'],'net');
+
+for i=1:numel(eps_list)
+    
+    disp(i);
+    
+    eps = eps_list(i);
+    xc_in = ones(2,1);
+    x_min = xc_in - eps;
+    x_max = xc_in + eps;
+    Xin = rect2d(x_min,x_max);
+    
+    subplot(1,3,i);
+    
+    
+    Xout = net.eval(Xin);
+    data = scatter(Xout(1,:),Xout(2,:),'LineWidth',0.5,'Marker','.');hold on;
+    
+    
+    method = 'deepsdp';
+    color = 'red';
+    repeated = 0;
+    [X_SDP,Y_SDP] = output_polytope(net,x_min,x_max,method,repeated,options,m);
+    h(1) = draw_2d_polytope(X_SDP,Y_SDP,color,'DeepSDP');hold on;
+    
+    
+%     method = 'sdr';
+%     color = 'black--';
+%     [X_SDR,Y_SDR] = output_polytope(net,x_min,x_max,method,repeated,options,m,color);
+%     h(2) = draw_2d_polytope(X_SDR,Y_SDR,color,'SDR');hold on;
+    
+    legend(h);
+    
+    
+    title(['$\epsilon=$' num2str(eps)],'Interpreter','latex');
+    
+    %set(gcf,'Units','inches');
+    %screenposition = get(gcf,'Position');
+    %set(gcf,'PaperPosition',[0 0 screenposition(3:4)],'PaperSize',[screenposition(3:4)]);
+end
+
+%saveas(gcf,[num2str(num_hidden_units_per_layer) 'n/' num2str(num_hidden_units_per_layer) 'n.fig'])
+%saveas(gcf,[num2str(num_hidden_units_per_layer) 'n/' num2str(num_hidden_units_per_layer) 'n.pdf'])
+
+
